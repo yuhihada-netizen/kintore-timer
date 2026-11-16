@@ -74,6 +74,14 @@ class MainActivity : Activity() {
         val start = btn(if (TimerService.running) "やり直す（最初から）" else "開始") { startTimer() }
         root.addView(start)
         if (TimerService.running) root.addView(btn("停止") { startService(Intent(this, TimerService::class.java).setAction(TimerService.ACT_STOP)); render() })
+        root.addView(rowOf(
+            btn(if (store.sound) "🔔 音：あり" else "🔕 音：なし") { store.sound = !store.sound; render() }
+        ))
+        if (store.sound) root.addView(rowOf(
+            btn("開始音を試す") { Sounds.playStart() },
+            btn("終了音を試す") { Sounds.playEnd() }
+        ))
+        root.addView(text("音ありにすると、種目の開始時と終了時に短い音が鳴ります。休憩なしで次の種目に続くときは、開始音だけです。", 12f))
         root.addView(text("開始後はホームやYouTubeを開いてください。画面の一番上にバーが出ます。バーは触れても反応せず、下のアプリをそのまま操作できます。一時停止・再開・前後への移動は、通知の操作ボタンで行います。", 12f))
 
         root.addView(text("メニュー"))
@@ -145,7 +153,7 @@ class MainActivity : Activity() {
 
     private fun launch() {
         val m = store.menu()
-        startForegroundService(Intent(this, TimerService::class.java).putExtra(TimerService.EXTRA_SEGS, segsToJson(buildSegs(m))))
+        startForegroundService(Intent(this, TimerService::class.java).putExtra(TimerService.EXTRA_SEGS, segsToJson(buildSegs(m))).putExtra(TimerService.EXTRA_SOUND, store.sound))
         render()
         moveTaskToBack(true)
     }

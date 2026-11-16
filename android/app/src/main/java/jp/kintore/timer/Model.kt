@@ -40,6 +40,9 @@ class Store(ctx: Context) {
     private val sp = ctx.getSharedPreferences("kintore", Context.MODE_PRIVATE)
     var menus = ArrayList<Menu>()
     var cur = 0
+    var sound: Boolean
+        get() = sp.getBoolean("sound", false)
+        set(v) { sp.edit().putBoolean("sound", v).apply() }
 
     init { load(); if (menus.isEmpty()) { menus.add(sample()); save() } }
 

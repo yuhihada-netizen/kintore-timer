@@ -31,6 +31,7 @@ class TimerService : Service() {
         const val ACT_NEXT = "next"
         const val ACT_STOP = "stop"
         const val EXTRA_SEGS = "segs"
+        const val EXTRA_SOUND = "sound"
         const val CH = "timer"
         @Volatile var running = false
     }
@@ -42,6 +43,9 @@ class TimerService : Service() {
     private var base = 0L
     private var paused = false
     private var doneAt = 0L
+    private var soundOn = false
+    private var lastIdx = -1
+    private var finishSounded = false
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var wm: WindowManager
     private lateinit var bar: LinearLayout
@@ -72,6 +76,7 @@ class TimerService : Service() {
         segs.forEach { starts.add(t); t += it.sec * 1000L }
         totalMs = t
         acc = 0; base = SystemClock.elapsedRealtime(); paused = false; doneAt = 0
+        soundOn = intent?.getBooleanExtra(EXTRA_SOUND, false) ?: false; lastIdx = -1; finishSounded = false
 
         if (!running) {
             running = true
@@ -110,11 +115,16 @@ class TimerService : Service() {
         val ratio: Float
         if (e >= totalMs) {
             if (doneAt == 0L) doneAt = SystemClock.elapsedRealtime()
+            if (!finishSounded) {
+                finishSounded = true
+                if (soundOn && lastIdx >= 0 && segs[lastIdx].work) Sounds.playEnd()  // 最後の種目の終了音
+            }
             if (SystemClock.elapsedRealtime() - doneAt > 6000) { stopSelf(); return }
             text = "完了！おつかれさま"; color = Color.rgb(52, 194, 122); ratio = 1f
         } else {
             val i = starts.indexOfLast { it <= e }.coerceAtLeast(0)
             val s = segs[i]
+            if (i != lastIdx) onSegmentChange(i)
             val remain = ((starts[i] + s.sec * 1000L - e + 999) / 1000).toInt()
             val set = if (s.work && s.sub.isNotEmpty()) " " + s.sub else ""
             text = (if (paused) "⏸ " else "") + "${s.label}$set：残り${fmt(remain)}"
@@ -131,6 +141,15 @@ class TimerService : Service() {
         (fillV.layoutParams as LinearLayout.LayoutParams).weight = ratio
         (restV.layoutParams as LinearLayout.LayoutParams).weight = 1f - ratio
         fillV.requestLayout()
+    }
+
+    /** 開始音：種目が始まるとき。終了音：種目のあとに休憩が入るとき（続けて次の種目が始まる場合は開始音だけ）。 */
+    private fun onSegmentChange(i: Int) {
+        if (soundOn) {
+            if (segs[i].work) Sounds.playStart()
+            else if (lastIdx >= 0 && segs[lastIdx].work) Sounds.playEnd()
+        }
+        lastIdx = i
     }
 
     private fun act(a: String, code: Int): PendingIntent =
